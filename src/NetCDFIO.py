@@ -35,7 +35,12 @@ class NETCDFIO(object):
         self.timeunit = timeunit
     def writeData(self, data = {'pt0': {'temperature': []}}, time = [], suppldata = {'E': 0.0},
                 pts = {'pt0': (0.0,0.0,0.0)}):
-        numofpts = len(data)
+        numofpts = len(pts)
+        assert len(data) == len(pts)
+        for ptdict in data.values():
+            for i, (param, paramarray) in enumerate(ptdict.items()):
+                if i == 0:
+                    assert len(paramarray) == len(time)
         with nc4.Dataset(os.path.join(self.folder, self.filename), 'w', format='NETCDF4') as f:
             # suppl data first
             gr_param = f.createGroup('input_param')
@@ -95,6 +100,7 @@ class NETCDFIO(object):
             resp = {}
             pts = {}
             skipvar = ["x", "y", "z", "time"]
+            t = grp_resp.variables['time'][:]
             for ptid, x in enumerate(grp_resp.variables['x'][:]):
                 y = grp_resp.variables['y'][:][ptid]
                 z = grp_resp.variables['z'][:][ptid]
@@ -103,7 +109,7 @@ class NETCDFIO(object):
                 for var in grp_resp.variables:
                     if not (var in skipvar):
                         resp[f"pt{ptid}"][var] = grp_resp.variables[var][:,ptid]
-        return (resp, pts)
+        return (resp, t, pts)
     def readParam(self):
         params = {}
         with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
