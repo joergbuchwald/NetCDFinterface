@@ -116,4 +116,4 @@ class NETCDFIO(object):
             grp_param = f.groups['input_param']
             for i, param in enumerate(grp_param.variables['params'][:]):
                 params[param] = np.asscalar(grp_param.variables['values'][i])
-        return param
+        return params
