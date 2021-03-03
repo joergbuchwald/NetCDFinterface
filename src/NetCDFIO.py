@@ -1,8 +1,11 @@
-import numpy as np
 import os
+import numpy as np
 import netCDF4 as nc4
 
 class NETCDFIO(object):
+    """
+    reading and write NetCDF data for AHM workflow
+    """
     def __init__(self, folder, filename, unitsmap=None, spatialunit="m", timeunit="s"):
         self.folder = folder
         self.filename = filename
@@ -49,10 +52,10 @@ class NETCDFIO(object):
             parameters = gr_param.createVariable('params', 'S1', ('nstrings','nchars'))
             paramvalues = gr_param.createVariable('values', np.float32,('nstrings'))
             paramunits = gr_param.createVariable('units','S1',('nstrings','nchars'))
-            paramdata = np.array([param for param in suppldata], dtype='S20')
+            paramdata = np.array(suppldata.keys(), dtype='S20')
             parameters[:] = nc4.stringtochar(paramdata)
             parameters._Encoding = 'ascii'
-            paramvaluedata = [paramvalue for paramvalue in suppldata.values()]
+            paramvaluedata = suppldata.values()
             paramvalues[:] = paramvaluedata
             paramunitslist = []
             for param in suppldata:
