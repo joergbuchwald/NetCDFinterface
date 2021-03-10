@@ -1,11 +1,8 @@
-import os
 import numpy as np
+import os
 import netCDF4 as nc4
 
 class NETCDFIO(object):
-    """
-    reading and write NetCDF data for AHM workflow
-    """
     def __init__(self, folder, filename, unitsmap=None, spatialunit="m", timeunit="s"):
         self.folder = folder
         self.filename = filename
@@ -39,11 +36,25 @@ class NETCDFIO(object):
     def writeData(self, data = {'pt0': {'temperature': []}}, time = [], suppldata = {'E': 0.0},
                 pts = {'pt0': (0.0,0.0,0.0)}):
         numofpts = len(pts)
-        assert len(data) == len(pts)
+        try:
+            assert len(data) == len(pts)
+        except AssertionError:
+            print("assertion error:")
+            print(len(data))
+            print(len(pts))
+            print(data)
+            print(pts)
         for ptdict in data.values():
             for i, (param, paramarray) in enumerate(ptdict.items()):
                 if i == 0:
-                    assert len(paramarray) == len(time)
+                    try:
+                        assert len(paramarray) == len(time)
+                    except AssertionError:
+                        print("assertion error:")
+                        print(len(paramarray))
+                        print(len(time))
+                        print(paramarray)
+                        print(time)
         with nc4.Dataset(os.path.join(self.folder, self.filename), 'w', format='NETCDF4') as f:
             # suppl data first
             gr_param = f.createGroup('input_param')
@@ -52,10 +63,10 @@ class NETCDFIO(object):
             parameters = gr_param.createVariable('params', 'S1', ('nstrings','nchars'))
             paramvalues = gr_param.createVariable('values', np.float32,('nstrings'))
             paramunits = gr_param.createVariable('units','S1',('nstrings','nchars'))
-            paramdata = np.array(suppldata.keys(), dtype='S20')
+            paramdata = np.array([param for param in suppldata], dtype='S20')
             parameters[:] = nc4.stringtochar(paramdata)
             parameters._Encoding = 'ascii'
-            paramvaluedata = suppldata.values()
+            paramvaluedata = [paramvalue for paramvalue in suppldata.values()]
             paramvalues[:] = paramvaluedata
             paramunitslist = []
             for param in suppldata:
@@ -83,6 +94,7 @@ class NETCDFIO(object):
             t = gr_resp.createVariable('time', np.float32, ('t',))
             t.units = self.timeunit
             t[:] = np.array(time)
+            var = {}
             for i, (pt, ptdict) in enumerate(data.items()):
                 ix[i] = pts[pt][0]
                 iy[i] = pts[pt][1]
@@ -90,12 +102,12 @@ class NETCDFIO(object):
                 for param, paramarray in ptdict.items():
                     if not param == "time":
                         if i == 0:
-                            var = gr_resp.createVariable(param, np.float64, ('t','pos'))
+                            var[param] = gr_resp.createVariable(param, np.float64, ('t','pos'))
                             try:
-                                var.units = self.unitsmap[param]
+                                var[param].units = self.unitsmap[param]
                             except:
-                                var.units = ""
-                        var[:,i] = paramarray
+                                var[param].units = ""
+                        var[param][:,i] = paramarray
 
     def readData(self):
         with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
