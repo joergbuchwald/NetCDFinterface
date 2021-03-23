@@ -85,6 +85,9 @@ class NETCDFIO(object):
             except KeyError:
                 print('The key time is not in the response variable dictionary.')
             _ = gr_resp.createDimension('t',time_length)
+            _ = gr_resp.createDimension('nchars', 20)
+            _ = gr_resp.createDimension('nstrings',None)
+            pts_var = gr_resp.createVariable('points', 'S1', ('nstrings','nchars'))
             ix = gr_resp.createVariable('x', np.float32, ('pos',))
             ix.units = self.spatialunit
             iy = gr_resp.createVariable('y', np.float32, ('pos',))
@@ -95,10 +98,12 @@ class NETCDFIO(object):
             t.units = self.timeunit
             t[:] = np.array(time)
             var = {}
+            pts_list = []
             for i, (pt, ptdict) in enumerate(data.items()):
                 ix[i] = pts[pt][0]
                 iy[i] = pts[pt][1]
                 iz[i] = pts[pt][2]
+                pts_list.append(pt)
                 for param, paramarray in ptdict.items():
                     if not param == "time":
                         if i == 0:
@@ -108,22 +113,26 @@ class NETCDFIO(object):
                             except:
                                 var[param].units = ""
                         var[param][:,i] = paramarray
-
+            pts_array = np.array(pts_list, dtype='S20')
+            pts_var[:] = nc4.stringtochar(pts_array)
     def readData(self):
         with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
             grp_resp = f.groups['response_data']
             resp = {}
             pts = {}
-            skipvar = ["x", "y", "z", "time"]
+            skipvar = ["x", "y", "z", "time", "points"]
             t = grp_resp.variables['time'][:]
+            pts_list = []
+            for point in nc4.chartostring(grp_resp.variables['points'][:]):
+                pts_list.append(point)
             for ptid, x in enumerate(grp_resp.variables['x'][:]):
                 y = grp_resp.variables['y'][:][ptid]
                 z = grp_resp.variables['z'][:][ptid]
-                pts[f"pt{ptid}"] = (x, y, z)
-                resp[f"pt{ptid}"] = {}
+                pts[pts_list[ptid]] = (x, y, z)
+                resp[pts_list[ptid]] = {}
                 for var in grp_resp.variables:
                     if not (var in skipvar):
-                        resp[f"pt{ptid}"][var] = grp_resp.variables[var][:,ptid]
+                        resp[pts_list[ptid]][var] = grp_resp.variables[var][:,ptid]
         return (resp, t, pts)
     def readParam(self):
         params = {}
