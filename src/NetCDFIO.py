@@ -33,8 +33,15 @@ class NETCDFIO(object):
             self.unitsmap = unitsmap
         self.spatialunit = spatialunit
         self.timeunit = timeunit
-    def writeData(self, data = {'pt0': {'temperature': []}}, time = [], suppldata = {'E': 0.0},
-                pts = {'pt0': (0.0,0.0,0.0)}):
+    def writeData(self, data = None, time = None, suppldata = None, pts = None):
+        if data is None:
+            data = {'pt0': {'temperature': []}}
+        if time is None:
+            time = []
+        if suppldata is None:
+            suppldata = {'E': 0.0}
+        if pts is None:
+            pts = {'pt0': (0.0,0.0,0.0)}
         numofpts = len(pts)
         try:
             assert len(data) == len(pts)
