@@ -2,7 +2,7 @@ import numpy as np
 import os
 import netCDF4 as nc4
 
-class NETCDFIO(object):
+class NetCDFIO(object):
     def __init__(self, folder, filename, unitsmap=None, spatialunit="m", timeunit="s"):
         self.folder = folder
         self.filename = filename
@@ -33,7 +33,7 @@ class NETCDFIO(object):
             self.unitsmap = unitsmap
         self.spatialunit = spatialunit
         self.timeunit = timeunit
-    def writeData(self, data = None, time = None, suppldata = None, pts = None):
+    def write_data(self, data = None, time = None, suppldata = None, pts = None):
         if data is None:
             data = {'pt0': {'temperature': []}}
         if time is None:
@@ -122,7 +122,7 @@ class NETCDFIO(object):
                         var[param][:,i] = paramarray
             pts_array = np.array(pts_list, dtype='S20')
             pts_var[:] = nc4.stringtochar(pts_array)
-    def readData(self):
+    def read_data(self):
         with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
             grp_resp = f.groups['response_data']
             resp = {}
@@ -141,7 +141,7 @@ class NETCDFIO(object):
                     if not (var in skipvar):
                         resp[pts_list[ptid]][var] = grp_resp.variables[var][:,ptid]
         return (resp, t, pts)
-    def readParam(self):
+    def read_param(self):
         params = {}
         with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
             grp_param = f.groups['input_param']
