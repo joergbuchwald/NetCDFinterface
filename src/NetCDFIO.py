@@ -3,8 +3,7 @@ import os
 import netCDF4 as nc4
 
 class NetCDFIO(object):
-    def __init__(self, folder, filename, unitsmap=None, spatialunit="m", timeunit="s"):
-        self.folder = folder
+    def __init__(self, filename, unitsmap=None, spatialunit="m", timeunit="s"):
         self.filename = filename
         if unitsmap is None:
             self.unitsmap = {'E': 'Pa',
@@ -62,7 +61,7 @@ class NetCDFIO(object):
                         print(len(time))
                         print(paramarray)
                         print(time)
-        with nc4.Dataset(os.path.join(self.folder, self.filename), 'w', format='NETCDF4') as f:
+        with nc4.Dataset(self.filename, 'w', format='NETCDF4') as f:
             # suppl data first
             gr_param = f.createGroup('input_param')
             _ = gr_param.createDimension('nchars', 20)
@@ -123,7 +122,7 @@ class NetCDFIO(object):
             pts_array = np.array(pts_list, dtype='S20')
             pts_var[:] = nc4.stringtochar(pts_array)
     def read_data(self):
-        with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
+        with nc4.Dataset(self.filename) as f:
             grp_resp = f.groups['response_data']
             resp = {}
             pts = {}
@@ -143,7 +142,7 @@ class NetCDFIO(object):
         return (resp, t, pts)
     def read_param(self):
         params = {}
-        with nc4.Dataset(os.path.join(self.folder, self.filename)) as f:
+        with nc4.Dataset(self.filename) as f:
             grp_param = f.groups['input_param']
             for i, param in enumerate(grp_param.variables['params'][:]):
                 params[param] = np.asscalar(grp_param.variables['values'][i])
