@@ -22,4 +22,4 @@ setup(name="NetCDFinterface",
       include_package_data=True,
       install_requires=["netCDF4", "numpy"],
       py_modules=["NetCDFIO","PVD2netCDF"],
-      package_dir={'': 'src'})
+      package_dir={'': 'NetCDFinterface'})

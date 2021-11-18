@@ -3,7 +3,7 @@ import os
 import netCDF4 as nc4
 
 class NetCDFIO(object):
-    def __init__(self, filename, unitsmap=None, spatialunit="m", timeunit="s"):
+    def __init__(self, filename, subgroup=None, unitsmap=None, spatialunit="m", timeunit="s"):
         self.filename = filename
         if unitsmap is None:
             self.unitsmap = {'E': 'Pa',
