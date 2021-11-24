@@ -1,23 +1,42 @@
 import numpy as np
 import pandas as pd
-import os
 import netCDF4 as nc4
+from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 
-class NetCDFinterpolate(object):
-    def __init__(self, filename, group="response_data", subgroup=None, unitsmap=None, spatialunit="m", timeunit="s"):
-        self.fileobject = nc4.Dataset("filename")
-        if subgroup is None:
-            self.data = self.fileobject.groups[group]
-        else:
-             self.data = self.fileobject.groups[group].groups[subgroup]
+class NetCDFInterpolate:
+    def __init__(self, filename, nneighbors=20, dim=3, one_d_axis=0, two_d_planenormal=2,
+            group=None, subgroup=None):
+        self.fileobject = nc4.Dataset(filename)
+        try:
+            if subgroup is None:
+                self.data = self.fileobject.groups[group]
+            else:
+                self.data = self.fileobject.groups[group].groups[subgroup]
+        except KeyError:
+            for grp in list(self.fileobject.groups):
+                for subgrp in list(self.fileobject.groups[grp].groups):
+                    self.data = self.fileobject.groups[grp].groups[subgrp]
         self.points = self.data.variables["geometry"][:][0]
         self.times = self.fileobject.variables["times"][:]
+        self.dim = dim
+        self.nneighbors = nneighbors
+        self.one_d_axis=one_d_axis
+        self.two_d_planenormal = two_d_planenormal
+        if self.dim == 1:
+            self.one_d_axis = one_d_axis
+            self.points = self.points[:,one_d_axis]
+        if self.dim == 2:
+            self.plane = [0, 1, 2]
+            self.plane.pop(two_d_planenormal)
+            self.points = np.delete(self.points, two_d_planenormal, 1)
 
-    def get_neighbors(self, points_interpol, data_type="point"):
+
+    def get_neighbors(self, points_interpol):
         """
         Method for obtaining neighbor points for interpolation.
         """
-        points = self.points if data_type == "point" else self.cell_center_points
+        points = self.points
         df = pd.DataFrame(points)
         neighbors = {}
         if self.dim == 1:
@@ -94,7 +113,7 @@ class NetCDFinterpolate(object):
         if timestep is None:
             field = self.data.variables[fieldname][:]
         else:
-            d = self.data.variables[fieldname][timestep, :]
+            field = self.data.variables[fieldname][timestep, :]
         return field
 
     def get_point_field_names(self):
@@ -104,7 +123,7 @@ class NetCDFinterpolate(object):
         fieldnames = [fieldname for fieldname in self.data.variables]
         return fieldnames
 
-    def read_data(self, fieldname, timestep, pts = None, data_type="point", interpolation_method="linear"):
+    def read_data(self, fieldname, timestep, pts = None, interpolation_method="linear"):
         """
         Get data of field "fieldname" at all points specified in "pts".
 
@@ -126,23 +145,23 @@ class NetCDFinterpolate(object):
                 resp[pt] = {}
                 for field in fieldname:
                     resp[pt][field] = []
-        nb = self.get_neighbors(pts, data_type=data_type)
+        nb = self.get_neighbors(pts)
         if isinstance(fieldname, str):
-            data = self.get_data_scipy(nb, pts, fieldname, timestep, data_type=data_type,
+            data = self.get_data_scipy(nb, pts, fieldname, timestep,
                         interpolation_method=interpolation_method)
             for pt in pts:
                 resp[pt] = data[pt]
         elif isinstance(fieldname, list):
             data = {}
             for field in fieldname:
-                data[field] = self.get_data_scipy(nb, pts, field, timestep, data_type=data_type,
+                data[field] = self.get_data_scipy(nb, pts, field, timestep,
                             interpolation_method=interpolation_method)
             for pt in pts:
                 for field in fieldname:
                     resp[pt][field] = data[field][pt]
         return resp
 
-    def get_set_data(self, fieldname, timestep, pointsetarray=None, data_type="point", interpolation_method="linear"):
+    def get_set_data(self, fieldname, timestep, pointsetarray=None, interpolation_method="linear"):
         """
         Get data specified in fieldname at all points specified in "pointsetarray".
         Parameters
@@ -159,7 +178,7 @@ class NetCDFinterpolate(object):
         # convert into point dictionary
         for i, entry in enumerate(pointsetarray):
             pts['pt'+str(i)] = entry
-        resp = self.read_data(fieldname, timestep, pts=pts, data_type=data_type, interpolation_method=interpolation_method)
+        resp = self.read_data(fieldname, timestep, pts=pts, interpolation_method=interpolation_method)
         resp_list = []
         # convert point dictionary into list
         for i, entry in enumerate(pointsetarray):
@@ -167,7 +186,7 @@ class NetCDFinterpolate(object):
         resp_array = np.array(resp_list)
         return resp_array
 
-    def read_set_data(self, fieldname, time, pointsetarray = None, data_type="point", interpolation_method="linear"):
+    def read_set_data(self, fieldname, time, pointsetarray = None, interpolation_method="linear"):
         """
         Get data of field "fieldname" at time "timestep" alon a given "pointsetarray".
 
@@ -182,27 +201,28 @@ class NetCDFinterpolate(object):
         """
         if pointsetarray is None:
             pointsetarray = [(0,0,0)]
-        filename = None
-        for i, ts in enumerate(self.times):
+        for timestep, ts in enumerate(self.times):
             if time == ts:
-                field = self.get_set_data(fieldname, timestep, pointsetarray, data_type=data_type, interpolation_method=interpolation_method)
+                field = self.get_set_data(fieldname, timestep, pointsetarray, interpolation_method=interpolation_method)
                 return field
         time1 = 0.0
         time2 = 0.0
+        timestep = 0
         for i, ts in enumerate(self.times):
             try:
                 if ts < time < self.times[i+1]:
                     time1 = ts
                     time2 = self.times[i+1]
+                    timestep = i
             except IndexError:
                 print("time step is out of range")
-        field1 = vtu1.get_set_data(fieldname, timestep, pointsetarray, data_type=data_type, interpolation_method=interpolation_method)
-        field2 = vtu2.get_set_data(fieldname, timestep, pointsetarray, data_type=data_type, interpolation_method=interpolation_method)
-        fieldslope = (field2-field1)/(timestep2-timestep1)
-        field = field1 + fieldslope * (timestep-timestep1)
+        field1 = self.get_set_data(fieldname, timestep, pointsetarray, interpolation_method=interpolation_method)
+        field2 = self.get_set_data(fieldname, timestep+1, pointsetarray, interpolation_method=interpolation_method)
+        fieldslope = (field2-field1)/(time2-time1)
+        field = field1 + fieldslope * (time-time1)
         return field
 
-    def read_time_series(self, fieldname, pts=None, data_type="point", interpolation_method="linear"):
+    def read_time_series(self, fieldname, pts=None, interpolation_method="linear"):
         """
         Return time series data of field "fieldname" at points pts.
         Also a list of fieldnames can be provided as "fieldname"
@@ -212,8 +232,6 @@ class NetCDFinterpolate(object):
         fieldname : `str`
         pts : `dict`, optional
               default: {'pt0': (0.0,0.0,0.0)}
-        data_type : `str` optional
-              "point" or "cell"
         interpolation_method : `str`, optional
                                default: 'linear
         """
@@ -227,18 +245,18 @@ class NetCDFinterpolate(object):
                 resp_t[pt] = {}
                 for field in fieldname:
                     resp_t[pt][field] = []
-        for timestep, time in enumerate(self.times):
+        for timestep, _ in enumerate(self.times):
             if timestep == 0:
-                nb = self.get_neighbors(pts, data_type=data_type)
+                nb = self.get_neighbors(pts)
             if isinstance(fieldname, str):
-                data = self.get_data_scipy(nb, pts, fieldname, timestep, data_type=data_type,
+                data = self.get_data_scipy(nb, pts, fieldname, timestep,
                             interpolation_method=interpolation_method)
                 for pt in pts:
                     resp_t[pt].append(data[pt])
             elif isinstance(fieldname, list):
                 data = {}
                 for field in fieldname:
-                    data[field] = self.get_data_scipy(nb, pts, field, timestep, data_type=data_type,
+                    data[field] = self.get_data_scipy(nb, pts, field, timestep,
                                 interpolation_method=interpolation_method)
                 for pt in pts:
                     for field in fieldname:
@@ -253,6 +271,6 @@ class NetCDFinterpolate(object):
                     resp_t_array[pt][field_] = np.array(fieldarray)
         return resp_t_array
 
-class XMDFreader(object):
+class XDMFreader:
     def __init__(self):
         pass
