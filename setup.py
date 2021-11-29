@@ -21,5 +21,5 @@ setup(name="NetCDFinterface",
       platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
       include_package_data=True,
       install_requires=["netCDF4", "numpy"],
-      py_modules=["NetCDFIO","PVD2netCDF"],
+      py_modules=["NetCDFInterpolate", "NetCDFIO","PVD2netCDF","NCFilter"],
       package_dir={'': 'NetCDFinterface'})
